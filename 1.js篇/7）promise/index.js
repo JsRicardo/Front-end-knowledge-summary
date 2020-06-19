@@ -39,31 +39,53 @@ function MyPromise(excutor) {
     catch (e) {
         reject(e)
     }
-
 }
 
+// setTimeout模拟异步执行
+// try catch捕获异常
+function excuteFn(res, rej, fn, val) {
+    setTimeout(function () {
+        try {
+            var newVal = fn(val)
+            res(newVal)
+        } catch (e) {
+            rej(e)
+        }
+    }, 0)
+}
+
+
 MyPromise.prototype.then = function (onFulfilled, onRejected) {
+    // 如果不注册处理函数的话，promise不处理返回的值，原样传递给下一个then
+    // 如空then
+    if (!onFulfilled) {
+        onFulfilled = function (val) {
+            return val
+        }
+    }
+    if (!onRejected) {
+        onRejected = function (reason) {
+            throw new Error(reason)
+        }
+    }
     var _this = this
+    // 为了链式调用，返回一个新的promise
     var newPromise = new MyPromise(function (res, rej) {
         if (_this.status === 'Fulfilled') {
-            var newResolveValue = onFulfilled(_this.fulFilledValue)
-            res(newResolveValue)
+            excuteFn(res, rej, onFulfilled, _this.fulFilledValue)
         }
 
         if (_this.status === 'Rejected') {
-            var newRejectReson = onRejected(_this.rejectedValue)
-            rej(newRejectReson)
+            excuteFn(res, rej, onRejected, _this.rejectedValue)
         }
         // 如果是异步任务，promise的状态还是pending，那么注册的成功 失败处理函数，
         // 不应该立即执行，而是应该在promise被reject或是被resolve再执行
         if (_this.status === 'pending') {
             _this.resolveEventList.push(function () {
-                var newResolveValue = onFulfilled(_this.fulFilledValue)
-                res(newResolveValue)
+                return excuteFn(res, rej, onFulfilled, _this.fulFilledValue)
             })
             _this.rejectEventList.push(function () {
-                var newRejectReson = onRejected(_this.rejectedValue)
-                res(newRejectReson)
+                return excuteFn(res, rej, onRejected, _this.rejectedValue)
             })
         }
     })
@@ -74,7 +96,7 @@ MyPromise.prototype.then = function (onFulfilled, onRejected) {
 
 var op = new MyPromise((res, rej) => {
     setTimeout(() => {
-       rej(0)
+        rej(0)
     }, 2000)
     //    throw new Error('你失败了')
 })
@@ -85,10 +107,10 @@ op.then((val) => {
 },
     (reason) => {
         console.log('触发了失败的函数：' + reason)
-        return '我是失败'
+        throw new Error('asdasdas')
     })
     .then((val) => {
         console.log(val, '成功2')
-    },(reason) => {
+    }, (reason) => {
         console.log(reason, '失败2')
     })
