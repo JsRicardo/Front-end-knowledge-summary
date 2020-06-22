@@ -4,7 +4,7 @@
 
 链式调用时，中间写一个空then，不会对后面有影响，相当于不存在。
 在promise链式调用中，返回普通值的情况
-    
+
     1. 上一个then返回的值，会作为后一个then中的参数
     2. 如果上一个then没有抛出一个错误，那么后一个then只会执行成功的函数
     3. 如果抛出错误，那么后一个then就会触发失败的函数
@@ -38,13 +38,15 @@ catch捕获异常，后面可以继续接then。如果catch的前面有then报�
 
 finally结束链式调用，后面不能接then。
 
-### all 
+### all
 
 promise.all接收一个promise数组，可以将多个promise实例包装成一个新的promise实例
 
-所有promise都resolve时，返回值是一个数组
+多个promise并发，同时执行
 
-只要有一个reject，就返回，返回值是被reject的值
+所有promise都resolve时，返回值是一个成功数组
+
+只要有一个reject，返回值就是被reject的值
 
 ### race
 
@@ -57,10 +59,11 @@ promise.race接收值和all是一样的，但是race是这些promise谁先执行
 ### promise原理实现
 
 用ES5实现一个简易的promise构造函数
+
 ```js
 /**
  * promise构造函数
- * @param {Function} excutor 
+ * @param {Function} excutor
  */
 function MyPromise(excutor) {
     var _this = this
