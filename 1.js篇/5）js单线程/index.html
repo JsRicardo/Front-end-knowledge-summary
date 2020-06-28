@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1 id="title">title</h1>
+
+    <script>
+        const h = document.getElementById('title')
+
+        const observer = new MutationObserver(function(){
+            console.log(1)
+        })
+        observer.observe(h, {
+            childList: true
+        })
+        h.innerText = '我变了'
+
+    </script>
+</body>
+</html>
