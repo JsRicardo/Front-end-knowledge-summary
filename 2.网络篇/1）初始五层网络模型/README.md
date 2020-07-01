@@ -54,7 +54,7 @@
 - 找到门之后，敲小红家的门，这就是网络层到运输层的过程
 - 然后和小红对暗号，这就是运输层到应用层的过程
 
-![image](https://wx2.sinaimg.cn/mw690/005QwFx4gy1gg9a7ijyrfj30rb0fcgm6.jpg)
+![image](https://user-gold-cdn.xitu.io/2020/7/1/1730825720aa5ff0?w=690&h=387&f=jpeg&s=36251)
 
 
 除了五层网络模型之外还有七层网络模型，那么七层网络模型是什么呢？
