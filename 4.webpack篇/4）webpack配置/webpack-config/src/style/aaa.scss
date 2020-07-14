@@ -1,0 +1,8 @@
+@import './var.scss';
+div{
+    border:  1px solid $red;
+    span{
+        color: #dcdcdc;
+        background-color: #ff0;
+    }
+}

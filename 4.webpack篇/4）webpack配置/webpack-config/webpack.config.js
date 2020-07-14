@@ -1,4 +1,6 @@
 const path = require('path')
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 
 function resolve(dir) {
     return path.join(__dirname, dir);
@@ -9,8 +11,14 @@ module.exports = {
     output: {
         filename: 'main.js', // 可以写成占位符的方式，打包的时候自动补充名称 [name].js
         path: resolve('dist'), // 输出的文件夹路径
-        publicPath: 'http://baidu.com' // 可选项，在引用这个文件的地方加上一个公共前缀
+        // publicPath: 'http://baidu.com' // 可选项，在引用这个文件的地方加上一个公共前缀
     },
+    plugins: [
+		new CleanWebpackPlugin(),
+		new HtmlWebpackPlugin({
+			template: 'public/index.html',
+		}),
+	],
     module: {
         rules: [
             {
@@ -21,7 +29,39 @@ module.exports = {
             {
                 test: /\.less$/,
                 // 将less编译成 css 再生成style标签，引入这个文件
-                use: ['style-loader', 'css-loader', 'less-loader', 'postcss-loader']
+                use: [
+                    {
+                        loader: 'style-loader',
+                        options: {
+                            insertAt: 'top', // 样式插入到 <head>
+                            singleton: true, //将所有的style标签合并成一个
+                          }
+                    },
+                    {
+                        loader: 'css-loader',
+                        options: {
+                            modules: true, // 启用css模块化
+                            importLoaders: 2 // 不管是js引入的 还是 less文件 引入的less文件 都需要走下面两个loader
+                        }
+                    },
+                    'less-loader',
+                    'postcss-loader'
+                ]
+            },
+            {
+                test: /\.scss$/,
+                // 将scss编译成 css 再生成style标签，引入这个文件
+                use: [
+                    'style-loader',
+                    {
+                        loader: 'css-loader',
+                        options: {
+                            importLoaders: 2
+                        }
+                    },
+                    'sass-loader',
+                    'postcss-loader'
+                ]
             },
             { // 配置打包图片的loader
                 test: /\.(png|gif|jpe?g|svg)$/,
@@ -32,12 +72,12 @@ module.exports = {
                     // }
                     loader: 'url-loader',
                     options: {
-                        name: '[name]_[hash].[ext]', 
+                        name: '[name]_[hash].[ext]',
                         limit: '10240', // 大于10KB的图片不会生成base64数据
                         outputPath: 'assets/' // 指定图片输出路径
                     }
                 }
             }
         ]
-    }
+    },
 }

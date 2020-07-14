@@ -151,3 +151,34 @@ module.exports = {
     use: ['style-loader', 'css-loader', 'less-loader', 'postcss-loader']
 },
 ```
+
+- 数组中loader的执行顺序
+
+一般来说，loader会按照数组逆序去执行，也就是说按照`postcss-loader -> less-loader -> css-loader -> style-loader` 这个顺序去执行
+
+但是如果遇到less文件中引用了其他的less文件，它就有可能不走less-loader 和 postcss-loader了，而是直接从css-loader进行解析加载
+
+为了避免css对其他模块产生影响，各个模块里的样式文件都只对自己的模块生效，这就叫做css的模块化
+
+修改一下配置
+```js
+{
+    test: /\.less$/,
+    // 将less编译成 css 再生成style标签，引入这个文件
+    use: [
+        'style-loader',
+        {
+            loader: 'css-loader',
+            options: {
+                modules: true, // 启用css模块化
+                importLoaders: 2 // 不管是js引入的 还是 less文件 引入的less文件 都需要走下面两个loader
+            }
+        },
+        'less-loader',
+        'postcss-loader'
+    ]
+},
+```
+
+## plugin
+
