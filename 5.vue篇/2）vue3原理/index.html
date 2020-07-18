@@ -8,6 +8,9 @@
         .red {
             color: red;
         }
+        .green{
+            color: green;
+        }
     </style>
 </head>
 <body>
@@ -22,8 +25,8 @@
         ])
         mount(vdom, document.getElementById('app'))
 
-        const vdom2 = h('div', {class: 'red'}, [
-            h('span', null, 'hello')
+        const vdom2 = h('div', {class: 'green'}, [
+            h('span', null, 'world!')
         ])
 
         patch(vdom, vdom2)
