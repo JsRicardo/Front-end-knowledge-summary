@@ -351,7 +351,7 @@ function mountApp(component, container) {
     // 当依赖改变时 会再次进入这个副作用函数
     watchEffect(() => {
         // 如果是mounted之前，那就先挂载app
-        if (!isMounted) { 
+        if (!isMounted) {
             oldDom = component.render()
             mount(oldDom, container)
             isMounted = true
@@ -362,6 +362,19 @@ function mountApp(component, container) {
             oldDom = newDom
         }
     })
+}
+const App = {
+    data: reactive({
+        count: 0
+    }),
+    render() {
+        return h('span', {
+            onClick: () => {
+                this.data.count++
+            }
+        }, this.data.count + '')
+
+    }
 }
 // ok你已经实现了一个mini-vue3程序
 mountApp(App, document.getElementById('app'))
