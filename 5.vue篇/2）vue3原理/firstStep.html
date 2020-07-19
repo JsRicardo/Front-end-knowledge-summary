@@ -1,0 +1,54 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <script>
+        let activeEffect
+        // 依赖关系
+        class Dep {
+            constructor(value) {
+                this.subscribers = new Set()
+                this._value = value
+            }
+            get value(){
+                this.depend()
+                return this._value
+            }
+            set value(newVlue) {
+                this._value = newVlue
+                this.notify()
+            }
+            // 收集依赖
+            depend() {
+                if (activeEffect) {
+                    this.subscribers.add(activeEffect)
+                }
+            }
+            // 触发依赖
+            notify() {
+                this.subscribers.forEach(effect => {
+                    effect()
+                })
+            }
+        }
+    
+        function watchEffect(effect) {
+            activeEffect = effect
+            effect()
+            activeEffect = null
+        }
+    
+        const dep = new Dep('hello')
+    
+        watchEffect(() => {
+            console.log(dep.value)
+        })
+        dep.value = 'world!'
+    </script>
+</body>
+</html>

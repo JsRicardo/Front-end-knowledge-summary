@@ -39,7 +39,13 @@ function mount(vNode, container) {
     if (vNode.props) {
         for (const key in vNode.props) {
             const attr = vNode.props[key]
-            elm.setAttribute(key, attr)
+            if (key.startsWith('on')) {
+                // 事件监听
+                const type = key.substr(2).toLocaleLowerCase()
+                elm.addEventListener(type, attr)
+            } else {
+                elm.setAttribute(key, attr)
+            }
         }
     }
     // children
@@ -158,18 +164,19 @@ if (typeof newChildren === 'string') {
 
 假设我们有一个这样的程序
 
-```js
+``` js
 let a = 10
 let b = a * 10
 ```
+
 我们希望a被修改的时候，b也跟着被修改。
 
-这里我们就可以叫做b的修改  是  a的修改的  `副作用 effect`
-
-想像一个EXCEL表格中，我们定义了一个`公式（function）`，B列 = A列 * 10，当A的值改变时，B也会随之改变。
+这里我们就可以叫做b的修改  是  a的修改的 `副作用 effect`
+想像一个EXCEL表格中，我们定义了一个 `公式（function）` ，B列 = A列 * 10，当A的值改变时，B也会随之改变。
 
 事实上，就相当于有个onAchange函数，在a改变时输出b = a * 10
-```js
+
+``` js
 onAchange(() => {
     b = a * 10
 })
@@ -180,9 +187,10 @@ onAchange(() => {
 这个函数就是a改变 所执行 的 副作用
 /
 ```
-那么  如何实现这个 onAchange呢？ 联想一下react的`setState`
 
-```js
+那么  如何实现这个 onAchange呢？ 联想一下react的 `setState`
+
+``` js
 let _state, _update // 定义一个_state 保存state 定义一个_update保存 执行更改的副作用
 
 const onStateChange = update => {
@@ -197,23 +205,164 @@ const setState = newState => {
 
 setState可以暴露给框架的使用者，显示的调用setState 告诉 框架 应该触发我这个操作的副作用了。
 
-但是在vue中，我们是`state.a = newValue` 这样去更新一个值得，那么Vue是如何做的呢？
+但是在vue中，我们是 `state.a = newValue` 这样去更新一个值得，那么Vue是如何做的呢？
 
-先来看一个简单的vue3代码
+先来看一个简单的vue3提供的新的API使用示例
 
-```js
-import { reactive watchEffect } from 'vue'
+``` js
+import {
+    reactive watchEffect
+} from 'vue'
 
 // 调用reactive包装state的值 就会返回以一个状态响应式的值
 // 包含了依赖收集
-const state = reactive({ 
+const state = reactive({
     count: 0
 })
 // 追踪这个函数使用过的所有的东西，他执行过程中使用的每一个响应式属性
 // 当我们修改state.count的时候这个函数会被再次执行
 watchEffect(() => {
     console.log(state.count)
-})// 0
+}) // 0
 state.count++ // 1
 ```
 
+这两个API 叫做Composition API，完全独立的，可以与options API共存的新的API。
+
+来看看这两个API是怎么实现的
+
+1. 第一步 我们先让 watchEffect 和依赖跟踪生效
+
+想想这里要做什么
+
+    1. 调用watchEffect 传入一个effect 之后，这个 effect 应该被作为一个副作用，被依赖被收集起来，等待调用
+    2. 这个effect 所依赖的参数发生改变时，effct 应该被再次执行
+
+``` js
+let activeEffect
+// 依赖关系
+class Dep {
+    constructor(value) {
+        this.subscribers = new Set()
+        this._value = value
+    }
+    get value() { // 利用getter自动执行依赖收集
+        this.depend()
+        return this._value
+    }
+    set value(newVlue) { // 利用setter自动执行副作用
+        this._value = newVlue
+        this.notify()
+    }
+    // 收集依赖
+    depend() {
+        if (activeEffect) this.subscribers.add(activeEffect)
+    }
+    // 触发依赖
+    notify() {
+        this.subscribers.forEach(effect => effect())
+    }
+}
+
+function watchEffect(effect) {
+    activeEffect = effect
+    effect()
+    activeEffect = null
+}
+const dep = new Dep('hello')
+watchEffect(() => {
+    console.log(dep.value)
+})
+dep.value = 'world!'
+```
+
+2. 第二步 实现 reactive 响应式的部分
+
+前面实现的dep类，让dep去保存value，以便触发value变更的时候去触发notify，调用副作用函数。在真正的vue中，则是代理整个对象，让对象的每一个属性，对应一个dep，value是对象的，而不是dep的
+
+所以这里首先，我们要实现这个reactive，那么reavtive究竟做了什么呢？
+
+    1. 代理整个对象，当我们访问对象的属性时，对整个属性加上依赖追踪
+    2. 当属性的值改变时，触发依赖追踪，触发副作用
+
+那么，在vue2中，这个事情是由 `Object.defineProperty` 去完成的，他确实完成了代理对象的工作，表现也还不错。但是不可避免的他存在一些缺点：
+
+    1. 需要遍历对象的每一个属性去为每一个属性绑定，遇到对象嵌套的情况还需要递归
+    2. 无法处理这个对象身上本身没有的属性的变更
+    3. 代理数组时，需要hack到数组的原型上去改变原有的方法，这也是为什么在vue2中直接用 `array[index]` 这样的方式修改数组，不会触发响应式的原因
+
+在vue3中，这个功能的核心就是 `proxy` ，proxy的特性这就就不详细说了，感兴趣的可以自行查阅API，proxy也很好的解决了 `Object.defineProperty` 的痛点。
+
+首先，我们肯定还是需要 `Dep` 这个依赖类，那我们在访问对象的属性时，通过proxy拦截一下这个动作，为这个属性绑定一个依赖追踪，把所有属性都绑定上依赖追踪，就需要有一个东西存储起来，这里选择 `Map` ，那还有就是每一个对象都需要为每一个属性绑定依赖追踪，所以要定位到 `这个属性是这个对象的` ，就还需要在外层再来一个 `Map` ，告诉我们哪个对象对应哪一个 属性依赖Map
+
+结构就是这样的 `对象 => 对象属性的map（ 对象属性 => 属性对应的依赖 ）`
+
+``` js
+const targetMap = new WeakMap() // 收集所有 对象和 整个对象 的依赖映射
+// 对象 => 对象属性的map（ 对象属性 => 属性对应的依赖 ）
+function getDep(target, key) {
+    let depsMap = targetMap.get(target)
+    if (!depsMap) {
+        depsMap = new Map() // 对象的每一个属性 与 对应的依赖 的映射
+        targetMap.set(target, depsMap)
+    }
+    let dep = depsMap.get(key)
+    if (!dep) {
+        dep = new Dep() // 
+        depsMap.set(key, dep)
+    }
+    return dep
+}
+
+const reactiveHandler = {
+    get(target, key, receiver) {
+        const dep = getDep(target, key)
+        dep.depend() // 依赖收集
+        return Reflect.get(target, key, receiver)
+    },
+    set(target, key, value, receiver) {
+        const dep = getDep(target, key)
+        const result = Reflect.set(target, key, value, receiver)
+        dep.notify() // 触发副作用
+        return result
+    }
+}
+
+function reactive(obj) {
+    // 代理对象
+    return new Proxy(obj, reactiveHandler)
+}
+```
+
+为什么 `proxy` 解决了 `Object.defineProperty` 的痛点呢？ 你可以看到，这里没有循环，没有递归了。也不用去特殊处理数组了
+
+比如 `array.push` ，它其实会先访问array.length，触发length + 1的操作，这里隐式的调用了get方法触发了依赖收集
+
+## mini-vue3
+
+现在我们有了h函数，有了挂载函数mount，dep依赖类， ractive响应式，watchEffect副作用监听
+
+那么我们现在就实现了一个简单的vue程序，把他们放到一起，写一个 `$mount` 函数，也就是挂载APP的函数
+
+``` js
+function mountApp(component, container) {
+    let isMounted = false
+    let oldDom
+    // 当依赖改变时 会再次进入这个副作用函数
+    watchEffect(() => {
+        // 如果是mounted之前，那就先挂载app
+        if (!isMounted) { 
+            oldDom = component.render()
+            mount(oldDom, container)
+            isMounted = true
+        } else {
+            // 如果app已经挂载，就比较两个Vdom 打补丁
+            const newDom = component.render()
+            patch(oldDom, newDom)
+            oldDom = newDom
+        }
+    })
+}
+// ok你已经实现了一个mini-vue3程序
+mountApp(App, document.getElementById('app'))
+```

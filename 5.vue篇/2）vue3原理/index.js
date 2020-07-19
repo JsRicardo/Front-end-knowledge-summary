@@ -15,7 +15,13 @@ function mount(vNode, container) {
     if (vNode.props) {
         for (const key in vNode.props) {
             const attr = vNode.props[key]
-            elm.setAttribute(key, attr)
+            if (key.startsWith('on')) {
+                // 事件监听
+                const type = key.substr(2).toLowerCase()
+                elm.addEventListener(type, attr)
+            } else {
+                elm.setAttribute(key, attr)
+            }
         }
     }
     // children
@@ -58,9 +64,9 @@ function patch(n1, n2) {
         }
         // 比较children
         const oldChildren = n1.children
-        const newChildren  = n2.children
+        const newChildren = n2.children
         if (typeof newChildren === 'string') {
-            
+
             if (typeof oldChildren === 'string') {
                 // 两个节点都是字符节点，内不同时，修改内容
                 if (newChildren !== oldChildren) {
@@ -69,7 +75,7 @@ function patch(n1, n2) {
             } else {
                 // 新节是字符 旧节点是 数组 直接替换
                 elm.innerHTML = newChildren
-            } 
+            }
 
         } else if (Array.isArray(newChildren)) {
             if (typeof oldChildren === 'string') {
@@ -83,9 +89,9 @@ function patch(n1, n2) {
                 // 假设没有key  我们只比较两个数组的 index 相同的部分
                 const commonLength = Math.min(newChildren.length, oldChildren.length)
 
-                for(let i = 0; i < commonLength; i++){
+                for (let i = 0; i < commonLength; i++) {
                     // 比较一下 公共部分的 每一个child
-                   patch(oldChildren[i], newChildren[i])
+                    patch(oldChildren[i], newChildren[i])
                 }
 
                 // 接下来比较一下差异部分
@@ -107,4 +113,62 @@ function patch(n1, n2) {
     } else {
         // 如果不是的话 就要进行节点替换了，但是又不能直接替换，里面比较复杂
     }
+}
+
+let activeEffect
+// 依赖关系
+class Dep {
+    subscribers = new Set()
+    // 收集依赖
+    depend() {
+        if (activeEffect) {
+            this.subscribers.add(activeEffect)
+        }
+    }
+    // 触发依赖
+    notify() {
+        this.subscribers.forEach(effect => {
+            effect()
+        })
+    }
+}
+const targetMap = new WeakMap()// 收集所有 对象和 整个对象 的依赖映射
+// 对象 => 对象属性的map（ 对象属性 => 属性对应的依赖 ）
+function getDep(target, key) {
+    let depsMap = targetMap.get(target)
+    if (!depsMap) {
+        depsMap = new Map() // 对象的每一个属性 与 对应的依赖 的映射
+        targetMap.set(target, depsMap)
+    }
+    let dep = depsMap.get(key)
+    if (!dep) {
+        dep = new Dep() // 
+        depsMap.set(key, dep)
+    }
+    return dep
+}
+
+const reactiveHandler = {
+    get(target, key, receiver) {
+        const dep = getDep(target, key)
+        dep.depend()
+        return Reflect.get(target, key, receiver)
+    },
+    set(target, key, value, receiver) {
+        const dep = getDep(target, key)
+        const result = Reflect.set(target, key, value, receiver)
+        dep.notify()
+        return result
+    }
+}
+
+function reactive(obj) {
+    // 代理对象
+    return new Proxy(obj, reactiveHandler)
+}
+
+function watchEffect(effect) {
+    activeEffect = effect
+    effect()
+    activeEffect = null
 }

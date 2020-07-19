@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,28 +9,47 @@
         .red {
             color: red;
         }
-        .green{
+
+        .green {
             color: green;
         }
     </style>
 </head>
+
 <body>
     <script src="./index.js"></script>
 
     <div id="app"></div>
 
     <script>
+        const App = {
+            data: reactive({
+                count: 0
+            }),
+            render() {
+                return  h('span', { onClick: () => { this.data.count++ } }, this.data.count + '')
+                
+            }
+        }
 
-        const vdom = h('div', {class: 'red'}, [
-            h('span', null, 'hello')
-        ])
-        mount(vdom, document.getElementById('app'))
+        function mountApp(component, container) {
+            let isMounted = false
+            let oldDom
+            watchEffect(() => {
+                if (!isMounted) {
+                    oldDom = component.render()
+                    mount(oldDom, container)
+                    isMounted = true
+                } else {
+                    const newDom = component.render()
+                    patch(oldDom, newDom)
+                    oldDom = newDom
+                }
+            })
+        }
 
-        const vdom2 = h('div', {class: 'green'}, [
-            h('span', null, 'world!')
-        ])
-
-        patch(vdom, vdom2)
+        mountApp(App, document.getElementById('app'))
     </script>
 </body>
+
 </html>

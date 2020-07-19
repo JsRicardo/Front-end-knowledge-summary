@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script>
+        let activeEffect
+        // 依赖关系
+        class Dep {
+            subscribers = new Set()
+            // 收集依赖
+            depend() {
+                if (activeEffect) {
+                    this.subscribers.add(activeEffect)
+                }
+            }
+            // 触发依赖
+            notify() {
+                this.subscribers.forEach(effect => {
+                    effect()
+                })
+            }
+        }
+        const targetMap = new WeakMap()// 收集所有 对象和 整个对象 的依赖映射
+        // 对象 => 对象属性的map（ 对象属性 => 属性对应的依赖 ）
+        function getDep(target, key) {
+            let depsMap = targetMap.get(target)
+            if (!depsMap) {
+                depsMap = new Map() // 对象的每一个属性 与 对应的依赖 的映射
+                targetMap.set(target, depsMap)
+            }
+            let dep = depsMap.get(key)
+            if (!dep) {
+                dep = new Dep() // 
+                depsMap.set(key, dep)
+            }
+            return dep
+        }
+
+        const reactiveHandler = {
+            get(target, key, receiver) {
+                const dep = getDep(target, key)
+                dep.depend()
+                return Reflect.get(target, key, receiver)
+            },
+            set(target, key, value, receiver) {
+                const dep = getDep(target, key)
+                const result = Reflect.set(target, key, value, receiver)
+                dep.notify()
+                return result
+            }
+        }
+
+        function reactive(obj) {
+            // 代理对象
+            return new Proxy(obj, reactiveHandler)
+        }
+
+        function watchEffect(effect) {
+            activeEffect = effect
+            effect()
+            activeEffect = null
+        }
+
+        const state = reactive({
+            count: 0
+        })
+        watchEffect(() => {
+            console.log(state.count)
+        })
+        state.count++
+    </script>
+</body>
+
+</html>
